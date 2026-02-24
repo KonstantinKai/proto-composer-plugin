@@ -52,6 +52,8 @@ pub fn parse_version_file(
 
 #[plugin_fn]
 pub fn load_versions(Json(_): Json<LoadVersionsInput>) -> FnResult<Json<LoadVersionsOutput>> {
+    let config = get_tool_config::<ComposerPluginConfig>()?;
+    let allow_pre = config.allow_pre_releases;
     let tags = load_git_tags("https://github.com/composer/composer")?;
 
     // Composer tags: 2.8.6, 2.7.0, 1.10.27, etc.
@@ -62,13 +64,12 @@ pub fn load_versions(Json(_): Json<LoadVersionsInput>) -> FnResult<Json<LoadVers
             if !tag.starts_with('2') {
                 return None;
             }
-            // Skip pre-release versions (RC, alpha, beta — case-insensitive)
-            let lower = tag.to_lowercase();
-            if lower.contains("rc")
-                || lower.contains("alpha")
-                || lower.contains("beta")
-            {
-                return None;
+            // Skip pre-release versions unless opted in
+            if !allow_pre {
+                let lower = tag.to_lowercase();
+                if lower.contains("rc") || lower.contains("alpha") || lower.contains("beta") {
+                    return None;
+                }
             }
             Some(tag)
         })
@@ -101,25 +102,28 @@ pub fn native_install(
 ) -> FnResult<Json<NativeInstallOutput>> {
     let env = get_host_environment()?;
     let version = &input.context.version;
-    let install_dir = input.install_dir.real_path().unwrap_or_else(
-        || input.install_dir.to_path_buf(),
-    );
+    let install_dir = input
+        .install_dir
+        .real_path()
+        .unwrap_or_else(|| input.install_dir.to_path_buf());
 
-    let phar_url = format!(
-        "https://getcomposer.org/download/{version}/composer.phar"
-    );
+    let phar_url = format!("https://getcomposer.org/download/{version}/composer.phar");
 
     if env.os == HostOS::Windows {
         // Download composer.phar
         let phar_path = format!("{}\\composer.phar", install_dir.display());
 
-        let download = exec_command!(pipe, "powershell", [
-            "-Command",
-            &format!(
-                "Invoke-WebRequest -Uri '{}' -OutFile '{}'",
-                phar_url, phar_path,
-            ),
-        ]);
+        let download = exec_command!(
+            pipe,
+            "powershell",
+            [
+                "-Command",
+                &format!(
+                    "Invoke-WebRequest -Uri '{}' -OutFile '{}'",
+                    phar_url, phar_path,
+                ),
+            ]
+        );
 
         if download.exit_code != 0 {
             return Ok(Json(NativeInstallOutput {
@@ -136,10 +140,11 @@ pub fn native_install(
         let bat_path = format!("{}\\composer.bat", install_dir.display());
         let bat_content = r#"@php "%~dp0composer.phar" %*"#;
 
-        let write_bat = exec_command!(pipe, "cmd", [
-            "/c",
-            &format!("echo {bat_content}> \"{bat_path}\""),
-        ]);
+        let write_bat = exec_command!(
+            pipe,
+            "cmd",
+            ["/c", &format!("echo {bat_content}> \"{bat_path}\""),]
+        );
 
         if write_bat.exit_code != 0 {
             return Ok(Json(NativeInstallOutput {
@@ -155,12 +160,7 @@ pub fn native_install(
         // Unix: download composer.phar and make executable
         let phar_path = format!("{}/composer", install_dir.display());
 
-        let download = exec_command!(pipe, "curl", [
-            "-sSL",
-            "-o",
-            &phar_path,
-            &phar_url,
-        ]);
+        let download = exec_command!(pipe, "curl", ["-sSL", "-o", &phar_path, &phar_url,]);
 
         if download.exit_code != 0 {
             return Ok(Json(NativeInstallOutput {
@@ -177,10 +177,7 @@ pub fn native_install(
 
         if chmod.exit_code != 0 {
             return Ok(Json(NativeInstallOutput {
-                error: Some(format!(
-                    "Failed to chmod composer: {}",
-                    chmod.stderr
-                )),
+                error: Some(format!("Failed to chmod composer: {}", chmod.stderr)),
                 installed: false,
                 ..NativeInstallOutput::default()
             }));
@@ -205,10 +202,7 @@ pub fn locate_executables(
         "composer".into()
     };
 
-    let exes = HashMap::from_iter([(
-        "composer".into(),
-        ExecutableConfig::new_primary(primary),
-    )]);
+    let exes = HashMap::from_iter([("composer".into(), ExecutableConfig::new_primary(primary))]);
 
     let config = get_tool_config::<ComposerPluginConfig>()?;
     let mut globals_dirs = vec!["$HOME/.composer/vendor/bin".into()];
@@ -231,9 +225,10 @@ pub fn sync_shell_profile(
 ) -> FnResult<Json<SyncShellProfileOutput>> {
     let config = get_tool_config::<ComposerPluginConfig>()?;
 
-    let export_vars = config.composer_home.as_ref().map(|home| {
-        HashMap::from_iter([("COMPOSER_HOME".into(), home.clone())])
-    });
+    let export_vars = config
+        .composer_home
+        .as_ref()
+        .map(|home| HashMap::from_iter([("COMPOSER_HOME".into(), home.clone())]));
 
     Ok(Json(SyncShellProfileOutput {
         check_var: "PROTO_COMPOSER_VERSION".into(),

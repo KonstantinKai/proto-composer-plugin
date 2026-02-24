@@ -1,4 +1,11 @@
 use proto_pdk_test_utils::*;
+use serde::Serialize;
+
+#[derive(Serialize)]
+#[serde(rename_all = "kebab-case")]
+struct TestComposerConfig {
+    allow_pre_releases: bool,
+}
 
 mod composer_tool {
     use super::*;
@@ -35,6 +42,39 @@ mod composer_tool {
         assert!(version_strings.iter().any(|v| v.starts_with("2.")));
 
         // Should NOT contain 1.x versions
+        assert!(!version_strings.iter().any(|v| v.starts_with("1.")));
+
+        // Should NOT contain pre-release versions by default
+        assert!(!version_strings.iter().any(|v| {
+            let lower = v.to_lowercase();
+            lower.contains("rc") || lower.contains("alpha") || lower.contains("beta")
+        }));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn loads_pre_release_versions_when_enabled() {
+        let sandbox = create_empty_proto_sandbox();
+        let plugin = sandbox
+            .create_plugin_with_config("composer-test", |config| {
+                config.tool_config(TestComposerConfig {
+                    allow_pre_releases: true,
+                });
+            })
+            .await;
+        let output = plugin.load_versions(LoadVersionsInput::default()).await;
+
+        assert!(!output.versions.is_empty());
+
+        let version_strings: Vec<String> =
+            output.versions.iter().map(|v| v.to_string()).collect();
+
+        // Should include at least one pre-release version
+        assert!(version_strings.iter().any(|v| {
+            let lower = v.to_lowercase();
+            lower.contains("rc") || lower.contains("alpha") || lower.contains("beta")
+        }));
+
+        // Should still NOT contain 1.x versions
         assert!(!version_strings.iter().any(|v| v.starts_with("1.")));
     }
 
