@@ -91,9 +91,14 @@ jobs:
         shell: pwsh
         run: echo "$env:USERPROFILE\.proto\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
 
+      - name: Build PHP plugin from source
+        run: |
+          git clone --depth 1 https://github.com/KonstantinKai/proto-php-plugin.git /tmp/proto-php-plugin
+          cargo build --manifest-path /tmp/proto-php-plugin/Cargo.toml --target wasm32-wasip1
+
       - name: Install PHP via proto
         run: |
-          proto plugin add php "github://KonstantinKai/proto-php-plugin"
+          proto plugin add php "file:///tmp/proto-php-plugin/target/wasm32-wasip1/debug/php_tool.wasm"
           proto install php 8.4
 
       - name: Register plugin and install Composer
