@@ -71,7 +71,9 @@ The plugin declares `requires: ["php"]` so proto ensures PHP is available before
 
 - [proto-php-plugin](https://github.com/KonstantinKai/proto-php-plugin) — PHP version management for proto
 
-## SupportnnIf you find this plugin useful, please give it a star on GitHub — it helps others discover the project!
+## Support
+
+If you find this plugin useful, please give it a star on GitHub — it helps others discover the project!
 
 ## License
 
