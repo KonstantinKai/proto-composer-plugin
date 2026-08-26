@@ -15,7 +15,7 @@ pub fn register_tool(Json(_): Json<RegisterToolInput>) -> FnResult<Json<Register
     Ok(Json(RegisterToolOutput {
         name: NAME.into(),
         type_of: PluginType::DependencyManager,
-        minimum_proto_version: Some(Version::new(0, 46, 0)),
+        minimum_proto_version: Some(Version::new(0, 56, 0)),
         plugin_version: Version::parse(env!("CARGO_PKG_VERSION")).ok(),
         requires: vec!["php".into()],
         ..RegisterToolOutput::default()
@@ -104,7 +104,8 @@ pub fn native_install(
     let version = &input.context.version;
     let install_dir = input
         .install_dir
-        .real_path()
+        .to_real_path()?
+        .map(|path| path.into_inner())
         .unwrap_or_else(|| input.install_dir.to_path_buf());
 
     let phar_url = format!("https://getcomposer.org/download/{version}/composer.phar");
