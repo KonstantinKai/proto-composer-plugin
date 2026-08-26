@@ -106,12 +106,12 @@ jobs:
       - name: Install PHP via proto
         run: |
           proto plugin add php "file:///tmp/proto-php-plugin/target/wasm32-wasip1/debug/php_tool.wasm"
-          proto install php "$PHP_VERSION"
+          proto install php "$PHP_VERSION" --pin local
 
       - name: Register plugin and install Composer
         run: |
           proto plugin add composer "file://./target/wasm32-wasip1/debug/composer_tool.wasm"
-          proto install composer 2.8
+          proto install composer 2.8 --pin local
 
       - name: Verify Composer
         run: proto run composer -- --version
